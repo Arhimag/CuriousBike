@@ -28,6 +28,12 @@
             android:enabled="true"
             android:exported="true" >
         </service>
+
+        <service
+            android:name=".BackgroundLocationService"
+            android:enabled="true"
+            android:exported="true" >
+        </service>
     </application>
 
 </manifest>
