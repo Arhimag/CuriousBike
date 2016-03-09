@@ -13,6 +13,7 @@ import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -44,11 +45,11 @@ public class BackgroundLocationService extends Service implements
     // Update frequency in milliseconds
     public static final long UPDATE_INTERVAL = MILLISECONDS_PER_SECOND * UPDATE_INTERVAL_IN_SECONDS;
     // The fastest update frequency, in seconds
-    private static final int FASTEST_INTERVAL_IN_SECONDS = 30;
+    private static final int FASTEST_INTERVAL_IN_SECONDS = 5;
     // A fast frequency ceiling in milliseconds
     public static final long FASTEST_INTERVAL = MILLISECONDS_PER_SECOND * FASTEST_INTERVAL_IN_SECONDS;
     // Stores the lat / long pairs in a text file
-    public static final String LOCATION_FILE = "sdcard/location.txt";
+    public static final String LOCATION_FILE = "sdcard/ArhimagLocation.txt";
     // Stores the connect / disconnect data in a text file
     public static final String LOG_FILE = "sdcard/log.txt";
 
@@ -59,6 +60,7 @@ public class BackgroundLocationService extends Service implements
     private LocationRequest mLocationRequest;
     private PowerManager.WakeLock mWakeLock;
 
+    private Location lastLocation;
     // Flag that indicates if a request is underway.
     private boolean mInProgress;
 
@@ -111,7 +113,8 @@ public class BackgroundLocationService extends Service implements
     {
 
         // Check that Google Play services is available
-        int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+        GoogleApiAvailability googleAPIAvailability = GoogleApiAvailability.getInstance();
+        int resultCode = googleAPIAvailability.isGooglePlayServicesAvailable(this);
 
         // If Google Play services is available
         if (ConnectionResult.SUCCESS == resultCode)
@@ -175,6 +178,7 @@ public class BackgroundLocationService extends Service implements
     @Override
     public void onLocationChanged(Location location)
     {
+        lastLocation = location;
         // Report to the UI that the location was updated
         String msg = Double.toString(location.getLatitude()) + "," +
                 Double.toString(location.getLongitude());
@@ -209,7 +213,7 @@ public class BackgroundLocationService extends Service implements
         {
             //BufferedWriter for performance, true to set append to file flag
             BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
-            buf.append(text);
+            buf.append(DateFormat.getTimeInstance().format(new Date())).append(text);
             buf.newLine();
             buf.close();
         }
@@ -300,5 +304,10 @@ public class BackgroundLocationService extends Service implements
         {
 
         }
+    }
+
+    public Location getLastLocation()
+    {
+        return lastLocation;
     }
 }

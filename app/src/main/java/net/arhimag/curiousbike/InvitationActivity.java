@@ -39,7 +39,7 @@ import java.util.Date;
 import java.util.jar.Manifest;
 
 public class InvitationActivity extends FragmentActivity
-    implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener
+    implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener
 {
 
     private GoogleApiClient googleApiClient;
@@ -51,11 +51,6 @@ public class InvitationActivity extends FragmentActivity
     private static final int DEFAULT_LOCATION_INTERVAL = 1000;
     private static final int DEFAULT_LOCATION_FASTEST_INTERVAL = 500;
 
-    private static final String LOGFILE_LOCATION_NAME = "sdcard/arhimaglocation.txt";
-    private File logFile;
-    private BufferedWriter bufferedWriter;
-    private StringBuilder logTextBuilder;
-    private static Location lastLocation;
     private TextView latitudeView;
     private TextView longitudeView;
 
@@ -80,6 +75,28 @@ public class InvitationActivity extends FragmentActivity
         }
     };
 
+
+    private BackgroundLocationService locationService;
+    private Intent locationServiceIntent;
+    private boolean locationServiceBound=false;
+
+    private ServiceConnection locationConnection = new ServiceConnection(){
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            BackgroundLocationService.BackgroundLocationServiceBinder binder = (BackgroundLocationService.BackgroundLocationServiceBinder)service;
+            //get service
+            locationService = binder.getService();
+            //pass list
+            locationServiceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            locationServiceBound = false;
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -99,60 +116,23 @@ public class InvitationActivity extends FragmentActivity
         latitudeView = (TextView) findViewById( R.id.latitude);
         longitudeView = (TextView) findViewById( R.id.longitude);
 
-        logFile = new File(LOGFILE_LOCATION_NAME);
-
-        if ( ! logFile.exists() )
-        {
-            try
-            {
-                logFile.createNewFile();
-            }
-            catch( IOException e)
-            {
-                Log.d("IOError", e.toString() );
-            }
-        }
-
-        try
-        {
-            bufferedWriter = new BufferedWriter(new FileWriter(logFile, true));
-        }
-        catch( IOException e )
-        {
-            Log.d("IOError", e.toString() );
-        }
-        logTextBuilder = new StringBuilder()
-                .append(DateFormat.getTimeInstance().format(new Date()))
-                .append(" onCreate")
-                .append(System.getProperty("line.separator"));
-
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 soundService.playTrack();
-                //Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                  //      .setAction("Action", null).show();
+                Location lastLocation = locationService.getLastLocation();
+                if ( lastLocation != null) {
+                    latitudeView.setText(String.valueOf(lastLocation.getLatitude()));
+                    longitudeView.setText(String.valueOf(lastLocation.getLongitude()));
+                }
             }
         });
     }
 
-    @Override
+   @Override
     public void onConnected(Bundle connectionHint)
     {
-        if( ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") ==  PackageManager.PERMISSION_GRANTED )
-            lastLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
-        if (lastLocation != null) {
-            latitudeView.setText(String.valueOf(lastLocation.getLatitude()));
-            longitudeView.setText(String.valueOf(lastLocation.getLongitude()));
-        }
-
-        LocationRequest locationRequest = new LocationRequest();
-        locationRequest.setInterval( DEFAULT_LOCATION_INTERVAL );
-        locationRequest.setFastestInterval(DEFAULT_LOCATION_FASTEST_INTERVAL);
-        locationRequest.setPriority(DEFAULT_LOCATION_ACCURACY);
-
-        LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
     }
 
     @Override
@@ -233,42 +213,6 @@ public class InvitationActivity extends FragmentActivity
     }
 
     @Override
-    public void onLocationChanged( Location location )
-    {
-        lastLocation = location;
-        if (lastLocation != null) {
-            latitudeView.setText(String.valueOf(lastLocation.getLatitude()));
-            longitudeView.setText(String.valueOf(lastLocation.getLongitude()));
-        }
-        logTextBuilder.append(DateFormat.getTimeInstance().format(new Date()))
-                .append("(")
-                .append(location.getLatitude())
-                .append(",")
-                .append(location.getLongitude())
-                .append(")")
-                .append(" Velocity:")
-                .append(location.getSpeed())
-                .append(" Time:")
-                .append(location.getTime())
-                .append(System.getProperty("line.separator"));
-
-        if( logTextBuilder.length() > 10000 )
-        {
-            try
-            {
-                bufferedWriter.append(logTextBuilder);
-                bufferedWriter.flush();
-                logTextBuilder.setLength(0);
-            }
-            catch ( IOException e )
-            {
-                logTextBuilder.setLength(0);
-            }
-
-        }
-    }
-
-    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_invitation, menu);
@@ -300,60 +244,39 @@ public class InvitationActivity extends FragmentActivity
             startService(soundServiceIntent);
         }
 
+        if( locationServiceIntent==null){
+            locationServiceIntent = new Intent(this, BackgroundLocationService.class);
+            bindService(locationServiceIntent, locationConnection, Context.BIND_AUTO_CREATE);
+            startService(locationServiceIntent);
+        }
+
         if( !resolvingGoogleApiError)
             googleApiClient.connect();
-        logTextBuilder.append(DateFormat.getTimeInstance().format(new Date()))
-                                .append(" onStart")
-                                .append(System.getProperty("line.separator"));
-
+        googleApiClient.disconnect();
     }
 
 
     @Override
     protected  void onResume()
     {
-        logTextBuilder.append(DateFormat.getTimeInstance().format(new Date()))
-                .append(" onResume")
-                .append(System.getProperty("line.separator"));
-
         super.onResume();
     }
 
     @Override
     protected  void onPause()
     {
-        logTextBuilder.append(DateFormat.getTimeInstance().format(new Date()))
-                .append(" onPause")
-                .append(System.getProperty("line.separator"));
         super.onPause();
     }
 
     @Override
     protected void onRestart()
     {
-        logTextBuilder.append(DateFormat.getTimeInstance().format(new Date()))
-                .append(" onRestart")
-                .append(System.getProperty("line.separator"));
         super.onRestart();
     }
 
     @Override
     protected void onStop()
     {
-//        googleApiClient.disconnect();
-        logTextBuilder.append(DateFormat.getTimeInstance().format(new Date()))
-                .append(" onStop")
-                .append(System.getProperty("line.separator"));
-        try
-        {
-            bufferedWriter.append(logTextBuilder);
-            bufferedWriter.flush();
-            logTextBuilder.setLength(0);
-        }
-        catch ( IOException e )
-        {
-            logTextBuilder.setLength(0);
-        }
         super.onStop();
     }
 
@@ -362,25 +285,6 @@ public class InvitationActivity extends FragmentActivity
     {
         stopService(soundServiceIntent);
         soundService=null;
-
-        try
-        {
-            bufferedWriter.append(logTextBuilder);
-            bufferedWriter.flush();
-            logTextBuilder.setLength(0);
-        }
-        catch ( IOException e )
-        {
-            logTextBuilder.setLength(0);
-        }
-        try
-        {
-            bufferedWriter.close();
-        }
-        catch( IOException e )
-        {
-
-        }
         super.onDestroy();
     }
 

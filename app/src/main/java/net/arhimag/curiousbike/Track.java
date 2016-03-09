@@ -11,6 +11,6 @@ public abstract  class Track
 {
     protected URI fileURI;
     protected int trackId;
-    protected actualCenter;
+    //protected actualCenter;
 
 }
