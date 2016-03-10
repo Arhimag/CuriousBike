@@ -34,6 +34,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.security.MessageDigest;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.jar.Manifest;
@@ -238,6 +240,9 @@ public class InvitationActivity extends FragmentActivity
     protected void onStart()
     {
         super.onStart();
+        Track trk1 = new Track(1);
+        trk1.downloadTrack(this);
+
         if(soundServiceIntent==null){
             soundServiceIntent = new Intent(this, SoundService.class);
             bindService(soundServiceIntent, soundConnection, Context.BIND_AUTO_CREATE);

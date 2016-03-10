@@ -70,8 +70,6 @@ public class SoundService extends Service
     }
 
     public void playTrack(){
-        if( mediaPlayer.isPlaying())
-            mediaPlayer.stop();
         mediaPlayer.reset();
         try{
             mediaPlayer.setDataSource(getApplicationContext(), Uri.parse("android.resource://net.arhimag.curiousbike/" + R.raw.test) );
