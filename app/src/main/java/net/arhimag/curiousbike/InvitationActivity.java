@@ -60,6 +60,8 @@ public class InvitationActivity extends FragmentActivity
     private Intent soundServiceIntent;
     private boolean soundServiceBound=false;
 
+    private int temp_track_id = 1;
+
     private ServiceConnection soundConnection = new ServiceConnection(){
 
         @Override
@@ -99,6 +101,29 @@ public class InvitationActivity extends FragmentActivity
         }
     };
 
+
+    private TourTrackerService tourTrackerService;
+    private Intent tourTrackerServiceIntent;
+    private boolean tourTrackerServiceBound=false;
+
+    private ServiceConnection tourTrackerConnection = new ServiceConnection(){
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            TourTrackerService.TourTrackerServiceBinder binder = (TourTrackerService.TourTrackerServiceBinder)service;
+            //get service
+            tourTrackerService = binder.getService();
+            //pass list
+            tourTrackerServiceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            tourTrackerServiceBound = false;
+        }
+    };
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -122,12 +147,21 @@ public class InvitationActivity extends FragmentActivity
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                soundService.playTrack();
-                Location lastLocation = locationService.getLastLocation();
-                if ( lastLocation != null) {
-                    latitudeView.setText(String.valueOf(lastLocation.getLatitude()));
-                    longitudeView.setText(String.valueOf(lastLocation.getLongitude()));
+                if(  locationServiceBound ) {
+                    locationService.connectToTourTracker();
+                    Location lastLocation = locationService.getLastLocation();
+                    if (lastLocation != null) {
+                        latitudeView.setText(String.valueOf(lastLocation.getLatitude()));
+                        longitudeView.setText(String.valueOf(lastLocation.getLongitude()));
+                    }
                 }
+                if( soundServiceBound);
+                {
+                    soundService.connectToTourTracker();
+                    soundService.playTrack(temp_track_id);
+                    temp_track_id = temp_track_id % 2 + 1;
+                }
+
             }
         });
     }
@@ -240,8 +274,11 @@ public class InvitationActivity extends FragmentActivity
     protected void onStart()
     {
         super.onStart();
-        Track trk1 = new Track(1);
-        trk1.downloadTrack(this);
+
+        if( !TrackPool.get(1).isDownloaded())
+            TrackPool.get(1).downloadTrack(this);
+        if( !TrackPool.get(2).isDownloaded())
+            TrackPool.get(2).downloadTrack(this);
 
         if(soundServiceIntent==null){
             soundServiceIntent = new Intent(this, SoundService.class);
@@ -253,6 +290,12 @@ public class InvitationActivity extends FragmentActivity
             locationServiceIntent = new Intent(this, BackgroundLocationService.class);
             bindService(locationServiceIntent, locationConnection, Context.BIND_AUTO_CREATE);
             startService(locationServiceIntent);
+        }
+
+        if( tourTrackerServiceIntent==null){
+            tourTrackerServiceIntent = new Intent(this, TourTrackerService.class);
+            bindService(tourTrackerServiceIntent, tourTrackerConnection, Context.BIND_AUTO_CREATE);
+            startService(tourTrackerServiceIntent);
         }
 
         if( !resolvingGoogleApiError)

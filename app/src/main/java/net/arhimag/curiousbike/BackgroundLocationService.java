@@ -1,8 +1,10 @@
 package net.arhimag.curiousbike;
 
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Binder;
@@ -65,6 +67,29 @@ public class BackgroundLocationService extends Service implements
     private boolean mInProgress;
 
     private Boolean servicesAvailable = false;
+
+    private TourTrackerService tourTrackerService;
+    private Intent tourTrackerServiceIntent;
+    private boolean tourTrackerServiceBound=false;
+
+    private ServiceConnection tourTrackerConnection = new ServiceConnection(){
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            TourTrackerService.TourTrackerServiceBinder binder = (TourTrackerService.TourTrackerServiceBinder)service;
+            //get service
+            tourTrackerService = binder.getService();
+            //pass list
+            tourTrackerServiceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            tourTrackerServiceBound = false;
+        }
+    };
+
+
 
     public class BackgroundLocationServiceBinder extends Binder
     {
@@ -179,6 +204,8 @@ public class BackgroundLocationService extends Service implements
     public void onLocationChanged(Location location)
     {
         lastLocation = location;
+        if ( tourTrackerServiceBound )
+            tourTrackerService.newLocationAlert( location );
         // Report to the UI that the location was updated
         String msg = Double.toString(location.getLatitude()) + "," +
                 Double.toString(location.getLongitude());
@@ -309,5 +336,20 @@ public class BackgroundLocationService extends Service implements
     public Location getLastLocation()
     {
         return lastLocation;
+    }
+
+    public void connectToTourTracker()
+    {
+        if( tourTrackerServiceIntent==null) {
+            tourTrackerServiceIntent = new Intent(this, TourTrackerService.class);
+        }
+
+        bindService(tourTrackerServiceIntent, tourTrackerConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    public void disconnectFromTourTracker()
+    {
+        if( tourTrackerServiceBound )
+            unbindService(tourTrackerConnection);
     }
 }

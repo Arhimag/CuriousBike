@@ -1,7 +1,10 @@
 package net.arhimag.curiousbike;
 
 import android.app.Service;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -16,6 +19,28 @@ public class SoundService extends Service
 {
     private final IBinder soundServiceBinder = new SoundServiceBinder();
     private MediaPlayer mediaPlayer;
+
+    private TourTrackerService tourTrackerService;
+    private Intent tourTrackerServiceIntent;
+    private boolean tourTrackerServiceBound=false;
+
+    private ServiceConnection tourTrackerConnection = new ServiceConnection(){
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            TourTrackerService.TourTrackerServiceBinder binder = (TourTrackerService.TourTrackerServiceBinder)service;
+            //get service
+            tourTrackerService = binder.getService();
+            //pass list
+            tourTrackerServiceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            tourTrackerServiceBound = false;
+        }
+    };
+
 
     public SoundService() {
     }
@@ -49,8 +74,11 @@ public class SoundService extends Service
     }
 
     @Override
-    public void onCompletion(MediaPlayer mp) {
+    public void onCompletion(MediaPlayer mp)
+    {
         mediaPlayer.reset();
+        if ( tourTrackerServiceBound )
+            tourTrackerService.trackStopped();
     }
 
     @Override
@@ -69,10 +97,10 @@ public class SoundService extends Service
         }
     }
 
-    public void playTrack(){
+    public void playTrack(int trackID){
         mediaPlayer.reset();
         try{
-            mediaPlayer.setDataSource(getApplicationContext(), Uri.parse("android.resource://net.arhimag.curiousbike/" + R.raw.test) );
+            mediaPlayer.setDataSource(getApplicationContext(), TrackPool.get(trackID).getFileURI() );
         }
         catch(Exception e){
             Log.e("MUSIC SERVICE", "Error setting data source", e);
@@ -80,5 +108,19 @@ public class SoundService extends Service
         mediaPlayer.prepareAsync();
     }
 
+    public void connectToTourTracker()
+    {
+        if( tourTrackerServiceIntent==null) {
+            tourTrackerServiceIntent = new Intent(this, TourTrackerService.class);
+        }
+
+        bindService(tourTrackerServiceIntent, tourTrackerConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    public void disconnectFromTourTracker()
+    {
+        if( tourTrackerServiceBound )
+            unbindService(tourTrackerConnection);
+    }
     
 }
